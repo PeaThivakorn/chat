@@ -377,11 +377,19 @@
 
         // รับ Offer
         async function handleOffer(offer) {
+            peerConnection = new RTCPeerConnection(iceServers);
+            peerConnection.ontrack = (event) => {
+                const remoteStream = new MediaStream(event.streams[0]);
+                const audioElement = new Audio();
+                audioElement.srcObject = remoteStream;
+                audioElement.play();
+            };
             await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
             signalingServer.send(JSON.stringify({ type: 'answer', answer }));
         }
+
 
         // รับ Answer
         async function handleAnswer(answer) {
