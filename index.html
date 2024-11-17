@@ -300,7 +300,7 @@
         let micDataArray, soundDataArray;
 
         // ตั้งค่า Signaling Server (ใช้ wss:// แทน ws:// สำหรับ Render)
-        const signalingServer = new WebSocket('wss://chat-44gj.onrender.com:8080'); // เปลี่ยน URL นี้ให้ตรงกับเซิร์ฟเวอร์ของคุณ
+        const signalingServer = new WebSocket('https://chat-44gj.onrender.com/'); // เปลี่ยน URL นี้ให้ตรงกับเซิร์ฟเวอร์ของคุณ
         signalingServer.onmessage = async event => {
             const data = JSON.parse(event.data);
 
