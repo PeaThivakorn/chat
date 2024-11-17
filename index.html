@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Application</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Loading Spinner -->
+        <div id="loadingSpinner" style="display: none;">กำลังโหลด...</div>
+
+        <!-- Header -->
+        <header class="header">
+            <div>ชื่อเว็บ</div>
+            <div>
+                <span id="userStatus">สถานะผู้ใช้งาน</span>
+                <button id="logoutButton">ล็อกเอาต์</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <div id="userContent">
+                <!-- ข้อความที่ผู้ใช้งานส่งจะแสดงในนี้ -->
+            </div>
+        </main>
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div>
+                <h3>ผู้ใช้งานออนไลน์</h3>
+                <ul id="onlineUsers"></ul>
+            </div>
+        </aside>
+
+        <div class="media">
+            <button id="muteMicButton">🎤 ปิดไมค์</button>
+            <div id="micLevel" style="width: 200px; height: 10px; background: #ccc; margin-top: 5px;">
+                <div style="height: 100%; width: 0%; background: green;" id="micLevelBar"></div>
+            </div>
+            <button id="muteSoundButton">🔊 ปิดเสียง</button>
+            <div id="soundLevel" style="width: 200px; height: 10px; background: #ccc; margin-top: 5px;">
+                <div style="height: 100%; width: 0%; background: blue;" id="soundLevelBar"></div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <input type="text" id="userInput" placeholder="พิมพ์ข้อความที่ต้องการส่ง">
+            <button id="sendButton">ส่ง</button>
+        </footer>
+
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.10.0/firebase-app.js";
+        import { getDatabase, ref, get, set, push, onValue, onDisconnect, remove } from "https://www.gstatic.com/firebasejs/9.10.0/firebase-database.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBhY2moqT78c63vjGCDYr4LcQwia35_V_A",
+            authDomain: "chatgray-56ce4.firebaseapp.com",
+            projectId: "chatgray-56ce4",
+            storageBucket: "chatgray-56ce4.firebasestorage.app",
+            messagingSenderId: "931095586310",
+            appId: "1:931095586310:web:8302d33d1cbdb282e24587",
+            measurementId: "G-VSC2J7J756"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        // DOM Elements
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const userStatus = document.getElementById('userStatus');
+        const logoutButton = document.getElementById('logoutButton');
+        const userInput = document.getElementById('userInput');
+        const sendButton = document.getElementById('sendButton');
+        const userContent = document.getElementById('userContent');
+        const onlineUsersList = document.getElementById('onlineUsers');
+
+        // Functions
+        const username = localStorage.getItem('username');
+        const password = localStorage.getItem('password');
+
+        function redirectToLogin() {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Invalid login!',
+                text: 'You will be redirected to the login page.',
+                showConfirmButton: false,
+                timer: 2000
+            }).then(() => {
+                window.location.href = '/login.html';
+            });
+        }
+
+        function updateContentHeight() {
+            const messages = userContent.querySelectorAll('.message');
+            if (messages.length >= 6) {
+                userContent.style.maxHeight = '315px';
+            } else {
+                userContent.style.maxHeight = 'none';
+            }
+        }
+
+        function scrollToLatestMessage() {
+            userContent.scrollTop = userContent.scrollHeight;
+        }
+
+        // Check login status
+        if (!username || !password) {
+            redirectToLogin();
+        } else {
+            const userRef = ref(database, 'users/' + username);
+            loadingSpinner.style.display = 'block';
+            get(userRef)
+                .then(snapshot => {
+                    loadingSpinner.style.display = 'none';
+                    if (snapshot.exists()) {
+                        const userData = snapshot.val();
+                        if (userData.password === password) {
+                            userStatus.textContent = `${username} (ออนไลน์)`;
+
+                            // ตั้งค่าสถานะออนไลน์ใน Firebase
+                            const userStatusRef = ref(database, `onlineUsers/${username}`);
+                            set(userStatusRef, { username: username, status: "online" });
+                            onDisconnect(userStatusRef).set({ username: username, status: "offline" });
+
+                        } else {
+                            redirectToLogin();
+                        }
+                    } else {
+                        redirectToLogin();
+                    }
+                })
+                .catch(error => {
+                    console.error('Firebase error:', error);
+                    loadingSpinner.style.display = 'none';
+                    redirectToLogin();
+                });
+        }
+
+        // บันทึกเวลาปัจจุบันเมื่อเปิดหน้าเว็บ
+        const lastLoadTime = new Date().toISOString();
+        sessionStorage.setItem('lastLoadTime', lastLoadTime);
+
+        // ดึงข้อมูลผู้ใช้งานออนไลน์แบบเรียลไทม์
+        const onlineUsersRef = ref(database, 'onlineUsers');
+        onValue(onlineUsersRef, (snapshot) => {
+            onlineUsersList.innerHTML = ''; // ล้างข้อมูลเก่าก่อน
+            if (snapshot.exists()) {
+                snapshot.forEach(childSnapshot => {
+                    const userData = childSnapshot.val();
+                    if (userData.status === "online") { // แสดงเฉพาะผู้ใช้งานที่ออนไลน์
+                        const userItem = document.createElement('li');
+                        userItem.textContent = userData.username;
+                        onlineUsersList.appendChild(userItem);
+                    }
+                });
+            } else {
+                const noUsersItem = document.createElement('li');
+                noUsersItem.textContent = 'ไม่มีผู้ใช้งานออนไลน์';
+                onlineUsersList.appendChild(noUsersItem);
+            }
+        });
+
+        // ส่งข้อความ
+        sendButton.addEventListener('click', function () {
+            const text = userInput.value.trim();
+            if (text !== '') {
+                const now = new Date();
+                const messageData = {
+                    text: text,
+                    timestamp: now.toISOString(),
+                    username: username
+                };
+
+                const messagesRef = ref(database, 'messages'); // เก็บข้อความทั้งหมดใน 'messages'
+                push(messagesRef, messageData)
+                    .then(() => {
+                        userInput.value = '';
+                    })
+                    .catch(error => {
+                        console.error('Error sending message:', error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error!',
+                            text: 'ไม่สามารถส่งข้อความได้'
+                        });
+                    });
+            } else {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'กรุณากรอกข้อความ!',
+                    text: 'ช่องข้อความไม่สามารถว่างได้'
+                });
+            }
+        });
+
+        // โหลดข้อความแบบเรียลไทม์
+        const messagesRef = ref(database, 'messages'); // ดึงข้อความทั้งหมดจาก 'messages'
+        onValue(messagesRef, (snapshot) => {
+            userContent.innerHTML = '';
+            const lastLoadTime = sessionStorage.getItem('lastLoadTime'); // โหลดเวลาที่เก็บไว้ใน sessionStorage
+            snapshot.forEach(childSnapshot => {
+                const messageData = childSnapshot.val();
+
+                // กรองข้อความที่มี timestamp ใหม่กว่าหรือเท่ากับเวลาที่โหลดหน้าเว็บ
+                if (new Date(messageData.timestamp) >= new Date(lastLoadTime)) {
+                    const message = document.createElement('div');
+                    message.classList.add('message');
+
+                    // สร้างชื่อผู้ใช้เป็นลิงก์ที่สามารถคลิกได้
+                    const messageText = `
+                    <strong><a href="#" class="username-link">${messageData.username}</a>:</strong> 
+                    <span>${messageData.text}</span>
+                    <span class="timestamp">ส่งเมื่อ: ${new Date(messageData.timestamp).toLocaleDateString()} ${new Date(messageData.timestamp).toLocaleTimeString()}</span>
+                `;
+                    message.innerHTML = messageText;
+                    userContent.appendChild(message);
+                }
+            });
+            updateContentHeight();
+            scrollToLatestMessage();
+        });
+
+        // การคลิกที่ชื่อผู้ใช้เพื่อการตอบกลับ
+        userContent.addEventListener('click', function (e) {
+            if (e.target && e.target.classList.contains('username-link')) {
+                const clickedUsername = e.target.textContent; // ดึงชื่อผู้ใช้ที่ถูกคลิก
+                userInput.value = `@${clickedUsername} `; // ใส่ชื่อผู้ใช้ที่คลิกในช่องข้อความเพื่อทำการตอบกลับ
+            }
+        });
+
+        // Handle Enter key press
+        userInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                sendButton.click();
+            }
+        });
+
+        // Logout function
+        logoutButton.addEventListener('click', () => {
+            Swal.fire({
+                icon: 'question',
+                title: 'ยืนยันการล็อกเอาต์?',
+                showCancelButton: true,
+                confirmButtonText: 'ใช่',
+                cancelButtonText: 'ยกเลิก'
+            }).then(result => {
+                if (result.isConfirmed) {
+                    const userStatusRef = ref(database, `onlineUsers/${username}`);
+                    remove(userStatusRef)
+                        .then(() => {
+                            localStorage.removeItem('username');
+                            localStorage.removeItem('password');
+                            window.location.href = '/login.html';
+                        })
+                        .catch(error => {
+                            console.error('Logout error:', error);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'เกิดข้อผิดพลาด!',
+                                text: 'ไม่สามารถล็อกเอาต์ได้'
+                            });
+                        });
+                }
+            });
+        });
+
+        // ลบข้อความเมื่อปิดหน้าเว็บ
+        window.addEventListener('beforeunload', () => {
+            const userMessagesRef = ref(database, `messages/${username}`);
+            remove(userMessagesRef)
+                .then(() => {
+                    console.log('User-specific chat messages cleared.');
+                })
+                .catch(error => {
+                    console.error('Error clearing user-specific messages:', error);
+                });
+        });
+
+        const muteMicButton = document.getElementById('muteMicButton');
+        const muteSoundButton = document.getElementById('muteSoundButton');
+        const micLevelBar = document.getElementById('micLevelBar');
+        const soundLevelBar = document.getElementById('soundLevelBar');
+
+        let isMicMuted = false;
+        let isSoundMuted = false;
+        let localStream;
+        let peerConnection;
+        let audioContext, micAnalyser;
+        let micDataArray;
+
+        // ตั้งค่า Signaling Server (จำลองด้วย WebSocket)
+        const signalingServer = new WebSocket('ws://localhost:8080'); // แก้ไข URL นี้ให้ตรงกับเซิร์ฟเวอร์ของคุณ
+        signalingServer.onmessage = async event => {
+            const data = JSON.parse(event.data);
+
+            if (data.type === 'offer') {
+                await handleOffer(data.offer);
+            } else if (data.type === 'answer') {
+                await handleAnswer(data.answer);
+            } else if (data.type === 'candidate') {
+                await handleCandidate(data.candidate);
+            }
+        };
+
+        // เริ่มต้นระบบเสียง
+        async function initAudio() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                if (localStream.getAudioTracks().length === 0) {
+                    console.error('ไม่มี track เสียงใน stream');
+                    return;
+                }
+
+                audioContext = new AudioContext();
+                const micSource = audioContext.createMediaStreamSource(localStream);
+
+                micAnalyser = audioContext.createAnalyser();
+                micAnalyser.fftSize = 256;
+                micSource.connect(micAnalyser);
+                micDataArray = new Uint8Array(micAnalyser.frequencyBinCount);
+
+                console.log('ไมโครโฟนพร้อมใช้งาน');
+                setupWebRTC();
+                startVisualizing();
+            } catch (err) {
+                console.error('ไม่สามารถเข้าถึงไมโครโฟน:', err);
+            }
+        }
+
+        // ตั้งค่า WebRTC
+        function setupWebRTC() {
+            const configuration = {
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            };
+
+            peerConnection = new RTCPeerConnection(configuration);
+
+            // เพิ่ม localStream ลงใน Peer Connection
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+
+            // เมื่อได้รับ Stream จากผู้ใช้อื่น
+            peerConnection.ontrack = event => {
+                const remoteAudio = document.createElement('audio');
+                remoteAudio.srcObject = event.streams[0];
+                remoteAudio.autoplay = true;
+                document.body.appendChild(remoteAudio);
+            };
+
+            // เมื่อมี ICE Candidate ใหม่
+            peerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    signalingServer.send(JSON.stringify({ type: 'candidate', candidate: event.candidate }));
+                }
+            };
+        }
+
+        // สร้าง Offer
+        async function createOffer() {
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            signalingServer.send(JSON.stringify({ type: 'offer', offer }));
+        }
+
+        // รับ Offer
+        async function handleOffer(offer) {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            signalingServer.send(JSON.stringify({ type: 'answer', answer }));
+        }
+
+        // รับ Answer
+        async function handleAnswer(answer) {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+        }
+
+        // รับ ICE Candidate
+        async function handleCandidate(candidate) {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        }
+
+        // แสดงระดับเสียง
+        function startVisualizing() {
+            function visualize() {
+                if (micAnalyser) {
+                    micAnalyser.getByteFrequencyData(micDataArray);
+                    const micVolume = micDataArray.reduce((a, b) => a + b) / micDataArray.length;
+                    micLevelBar.style.width = `${micVolume}%`;
+                }
+
+                requestAnimationFrame(visualize);
+            }
+
+            visualize();
+        }
+
+        // ปุ่มเปิด/ปิดไมค์
+        muteMicButton.addEventListener('click', () => {
+            if (localStream) {
+                isMicMuted = !isMicMuted;
+                localStream.getAudioTracks().forEach(track => (track.enabled = !isMicMuted));
+                muteMicButton.textContent = isMicMuted ? '🎤 เปิดไมค์' : '🎤 ปิดไมค์';
+                console.log(isMicMuted ? 'ไมโครโฟนถูกปิด' : 'ไมโครโฟนถูกเปิด');
+            }
+        });
+
+        // ปุ่มเปิด/ปิดเสียง
+        muteSoundButton.addEventListener('click', () => {
+            isSoundMuted = !isSoundMuted;
+            muteSoundButton.textContent = isSoundMuted ? '🔊 เปิดเสียง' : '🔊 ปิดเสียง';
+            console.log(isSoundMuted ? 'เสียงถูกปิด' : 'เสียงถูกเปิด');
+        });
+
+        // เริ่มต้นเมื่อโหลดหน้าเว็บ
+        initAudio();
+    </script>
+
+</body>
+
+</html>
