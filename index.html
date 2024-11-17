@@ -301,7 +301,7 @@
         let micDataArray;
 
         // ตั้งค่า Signaling Server
-        const signalingServer = new WebSocket('https://chat-44gj.onrender.com/');
+        const signalingServer = new WebSocket('wss://chat-44gj.onrender.com/');
         signalingServer.onmessage = async (event) => {
             const data = JSON.parse(event.data);
 
