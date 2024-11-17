@@ -296,6 +296,7 @@
         let isSoundMuted = false;
         let localStream;
         let peerConnection;
+        let remoteStream = new MediaStream(); // ใช้สำหรับเก็บเสียงของผู้ใช้งานคนอื่น
         let audioContext, micAnalyser;
         let micDataArray;
 
@@ -332,14 +333,6 @@
                 micSource.connect(micAnalyser);
                 micDataArray = new Uint8Array(micAnalyser.frequencyBinCount);
 
-                // ส่งเสียงไมโครโฟนไปที่ลำโพงใน Local
-                const audioDestination = audioContext.createMediaStreamDestination();
-                micSource.connect(audioDestination);
-
-                const audioElement = new Audio();
-                audioElement.srcObject = audioDestination.stream;
-                audioElement.autoplay = true;
-
                 console.log('ไมโครโฟนพร้อมใช้งาน');
                 setupWebRTC();
                 startVisualizing();
@@ -361,12 +354,17 @@
                 peerConnection.addTrack(track, localStream);
             });
 
-            // เมื่อได้รับ Stream จากผู้ใช้อื่น
+            // เมื่อได้รับ Stream จากผู้ใช้งานคนอื่น
             peerConnection.ontrack = (event) => {
+                event.streams[0].getTracks().forEach(track => remoteStream.addTrack(track));
+
+                // เล่นเสียงของผู้ใช้งานคนอื่น
                 const remoteAudio = document.createElement('audio');
-                remoteAudio.srcObject = event.streams[0];
+                remoteAudio.srcObject = remoteStream;
                 remoteAudio.autoplay = true;
                 document.body.appendChild(remoteAudio);
+
+                console.log('กำลังเล่นเสียงของผู้ใช้งานคนอื่น');
             };
 
             // เมื่อมี ICE Candidate ใหม่
@@ -394,12 +392,18 @@
             peerConnection = new RTCPeerConnection({
                 iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
             });
+
             peerConnection.ontrack = (event) => {
-                const remoteStream = new MediaStream(event.streams[0]);
-                const audioElement = new Audio();
-                audioElement.srcObject = remoteStream;
-                audioElement.play();
+                event.streams[0].getTracks().forEach(track => remoteStream.addTrack(track));
+
+                const remoteAudio = document.createElement('audio');
+                remoteAudio.srcObject = remoteStream;
+                remoteAudio.autoplay = true;
+                document.body.appendChild(remoteAudio);
+
+                console.log('กำลังเล่นเสียงของผู้ใช้งานคนอื่น');
             };
+
             await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
