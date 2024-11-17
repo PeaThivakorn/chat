@@ -1,0 +1,170 @@
+/* General Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #f0f0f0;
+}
+
+.container {
+    display: grid;
+    grid-template-areas:
+        "header header"
+        "main sidebar"
+        "footer sidebar";
+    grid-template-rows: auto 1fr auto;
+    grid-template-columns: 3fr 1fr;
+    width: 90%;
+    max-width: 1200px;
+    height: 80vh;
+    background: #fff;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.header {
+    grid-area: header;
+    background: #f3f3f3;
+    padding: 10px;
+    border: 1px dashed black;
+    border-radius: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.main {
+    grid-area: main;
+    background: #e0e0e0;
+    padding: 10px;
+    border: 1px dashed black;
+    border-radius: 10px;
+}
+
+.sidebar {
+    grid-area: sidebar;
+    background: #e0e0e0;
+    padding: 10px;
+    border: 1px dashed black;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+.footer {
+    grid-area: footer;
+    background: #f3f3f3;
+    padding: 5px;
+    border: 1px dashed black;
+    border-radius: 10px;
+    /* display: flex; */
+    align-items: center;
+}
+
+input[type="text"] {
+    width: 90%;
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #aaa;
+}
+
+button {
+    padding: 10px 30px;
+    border-radius: 5px;
+    background: #4CAF50;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+}
+
+h3 {
+    margin-top: 0;
+}
+
+#userContent {
+    width: 100%;
+    border: 1px solid #ccc;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+
+    /* ตั้งค่าการเลื่อน */
+    overflow-y: auto;
+    /* เปิดใช้งาน scroll แนวตั้ง */
+    max-height: none;
+    /* ยกเลิกการกำหนดความสูงเริ่มต้น */
+}
+
+
+.message {
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #f1f1f1;
+}
+
+.message .timestamp {
+    display: block;
+    font-size: 12px;
+    color: #999;
+    margin-top: 5px;
+}
+
+
+
+/* login */
+.login-container {
+    background: #fff;
+    padding: 20px 40px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    text-align: center;
+}
+
+h1 {
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.g_id_signin {
+    margin-top: 20px;
+}
+
+/* ป้องกันไม่ให้ชื่อผู้ใช้ที่เป็นลิงก์เปลี่ยนสี */
+.username-link {
+    color: #0cf0f8;
+    /* ใช้สีของข้อความที่มีอยู่แทน */
+    text-decoration: none;
+    /* ไม่ให้แสดงเส้นใต้ */
+}
+
+/* ยกเลิกการเปลี่ยนสีของลิงก์เมื่อคลิกหรือโต้ตอบ */
+.username-link:visited,
+.username-link:hover,
+.username-link:active {
+    color: #0cf0f8;
+    /* รักษาสีเดิมของข้อความ */
+    text-decoration: none;
+    /* ไม่ให้แสดงเส้นใต้ */
+}
+
+/* .footer button {
+    margin: 0 5px;
+    padding: 5px 10px;
+    cursor: pointer;
+}
+
+#muteMicButton, #muteSoundButton {
+    font-size: 18px;
+} */
