@@ -296,12 +296,12 @@
         let isSoundMuted = false;
         let localStream;
         let peerConnection;
-        let audioContext, micAnalyser, soundAnalyser;
-        let micDataArray, soundDataArray;
+        let audioContext, micAnalyser;
+        let micDataArray;
 
-        // ตั้งค่า Signaling Server (ใช้ wss:// แทน ws:// สำหรับ Render)
-        const signalingServer = new WebSocket('https://chat-44gj.onrender.com/'); // เปลี่ยน URL นี้ให้ตรงกับเซิร์ฟเวอร์ของคุณ
-        signalingServer.onmessage = async event => {
+        // ตั้งค่า Signaling Server
+        const signalingServer = new WebSocket('https://chat-44gj.onrender.com/');
+        signalingServer.onmessage = async (event) => {
             const data = JSON.parse(event.data);
 
             if (data.type === 'offer') {
@@ -326,10 +326,19 @@
                 audioContext = new AudioContext();
                 const micSource = audioContext.createMediaStreamSource(localStream);
 
+                // ตั้งค่า Analyser สำหรับ Visualizing
                 micAnalyser = audioContext.createAnalyser();
                 micAnalyser.fftSize = 256;
                 micSource.connect(micAnalyser);
                 micDataArray = new Uint8Array(micAnalyser.frequencyBinCount);
+
+                // ส่งเสียงไมโครโฟนไปที่ลำโพงใน Local
+                const audioDestination = audioContext.createMediaStreamDestination();
+                micSource.connect(audioDestination);
+
+                const audioElement = new Audio();
+                audioElement.srcObject = audioDestination.stream;
+                audioElement.autoplay = true;
 
                 console.log('ไมโครโฟนพร้อมใช้งาน');
                 setupWebRTC();
@@ -353,7 +362,7 @@
             });
 
             // เมื่อได้รับ Stream จากผู้ใช้อื่น
-            peerConnection.ontrack = event => {
+            peerConnection.ontrack = (event) => {
                 const remoteAudio = document.createElement('audio');
                 remoteAudio.srcObject = event.streams[0];
                 remoteAudio.autoplay = true;
@@ -361,10 +370,15 @@
             };
 
             // เมื่อมี ICE Candidate ใหม่
-            peerConnection.onicecandidate = event => {
+            peerConnection.onicecandidate = (event) => {
                 if (event.candidate) {
                     signalingServer.send(JSON.stringify({ type: 'candidate', candidate: event.candidate }));
                 }
+            };
+
+            // Debugging ICE Connection
+            peerConnection.oniceconnectionstatechange = () => {
+                console.log('ICE Connection State:', peerConnection.iceConnectionState);
             };
         }
 
@@ -377,7 +391,9 @@
 
         // รับ Offer
         async function handleOffer(offer) {
-            peerConnection = new RTCPeerConnection(iceServers);
+            peerConnection = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
             peerConnection.ontrack = (event) => {
                 const remoteStream = new MediaStream(event.streams[0]);
                 const audioElement = new Audio();
@@ -389,7 +405,6 @@
             await peerConnection.setLocalDescription(answer);
             signalingServer.send(JSON.stringify({ type: 'answer', answer }));
         }
-
 
         // รับ Answer
         async function handleAnswer(answer) {
@@ -404,23 +419,13 @@
         // แสดงระดับเสียงของไมค์
         function startVisualizing() {
             function visualize() {
-                // สำหรับไมค์
                 if (micAnalyser) {
                     micAnalyser.getByteFrequencyData(micDataArray);
                     const micVolume = micDataArray.reduce((a, b) => a + b) / micDataArray.length;
                     micLevelBar.style.width = `${micVolume}%`;
                 }
-
-                // สำหรับเสียง
-                if (soundAnalyser) {
-                    soundAnalyser.getByteFrequencyData(soundDataArray);
-                    const soundVolume = soundDataArray.reduce((a, b) => a + b) / soundDataArray.length;
-                    soundLevelBar.style.width = `${soundVolume}%`;
-                }
-
                 requestAnimationFrame(visualize);
             }
-
             visualize();
         }
 
@@ -443,6 +448,7 @@
 
         // เริ่มต้นเมื่อโหลดหน้าเว็บ
         initAudio();
+
 
     </script>
 
