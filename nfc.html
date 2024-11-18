@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบตรวจสอบบัตร NFC</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 20px;
+    }
+    h1 {
+      color: #333;
+    }
+    p {
+      font-size: 18px;
+    }
+    button {
+      padding: 10px 20px;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <h1>ระบบตรวจสอบบัตร NFC</h1>
+  <p>กดปุ่มเพื่อเริ่มอ่านบัตร</p>
+  <button id="startNFC">เริ่มอ่านบัตร</button>
+  <p id="status"></p>
+
+  <script>
+    // ตั้งค่าหมายเลข Serial Number ที่อนุญาต
+    const allowedCards = ["04:8C:18:6A:37:71:80"]; // เพิ่ม Serial Number ของคุณที่นี่
+
+    document.getElementById('startNFC').addEventListener('click', async () => {
+      if ('NDEFReader' in window) {
+        const nfc = new NDEFReader();
+        try {
+          await nfc.scan();
+          document.getElementById('status').textContent = "กรุณาสแกนบัตรใกล้กับอุปกรณ์...";
+
+          nfc.onreading = (event) => {
+            const { message } = event;
+            const record = message.records[0];
+            if (record) {
+              const textDecoder = new TextDecoder();
+              const rfid = textDecoder.decode(record.data);
+
+              if (allowedCards.includes(rfid)) {
+                document.getElementById('status').textContent = `ยินดีต้อนรับ! บัตรหมายเลข ${rfid} ได้รับอนุญาต.`;
+                // ส่งข้อมูลไปยังเซิร์ฟเวอร์เพื่อบันทึกการเข้า
+                fetch('https://script.google.com/macros/s/AKfycbx4D42XZoGP5S_c-baTHuZIi-FtKdbcvuNWDVrZBtDLh2QXepBqbV_umHTH8h0BfFmn/exec', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ rfid, timestamp: new Date().toISOString() })
+                })
+                .then(response => response.json())
+                .then(data => {
+                  if (data.success) {
+                    alert("บันทึกสำเร็จ!");
+                  } else {
+                    alert("เกิดข้อผิดพลาด: " + data.error);
+                  }
+                });
+              } else {
+                document.getElementById('status').textContent = `หมายเลขบัตร ${rfid} ไม่มีสิทธิ์เข้า.`;
+              }
+            }
+          };
+        } catch (error) {
+          document.getElementById('status').textContent = "ไม่สามารถใช้งาน NFC ได้: " + error.message;
+        }
+      } else {
+        document.getElementById('status').textContent = "เบราว์เซอร์นี้ไม่รองรับ NFC";
+      }
+    });
+  </script>
+</body>
+</html>
